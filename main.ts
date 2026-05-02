@@ -224,7 +224,7 @@ function askNewNoteTemplate(app: App): Promise<NewNoteTemplateChoice | false> {
 }
 
 function getConfiguredNewNoteTemplate(app: App, templatePath: string): TFile | null {
-	const inputPath = normalizePath(templatePath.trim().replace(/^\[\[/, "").replace(/\]\]$/, ""));
+	const inputPath = normalizeNewNoteTemplatePath(templatePath);
 	if (inputPath == "") return null;
 
 	const templateFolder = getCoreTemplatesFolder(app);
@@ -250,6 +250,13 @@ function getConfiguredNewNoteTemplate(app: App, templatePath: string): TFile | n
 	}
 
 	return file;
+}
+
+function normalizeNewNoteTemplatePath(templatePath: string) {
+	const inputPath = templatePath.trim().replace(/^\[\[/, "").replace(/\]\]$/, "");
+	if (inputPath == "") return "";
+	const normalizedPath = normalizePath(inputPath);
+	return normalizedPath == "/" ? "" : normalizedPath;
 }
 
 function renderNewNoteTemplate(template: string, expandedTagsAll: string[], expandedTags: string) {
@@ -1314,6 +1321,7 @@ export default class TagFolderPlugin extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
+		this.settings.newNoteTemplate = normalizeNewNoteTemplatePath(this.settings.newNoteTemplate);
 		await this.loadTagInfo();
 		tagFolderSetting.set(this.settings);
 		this.compareItems = getCompareMethodItems(this.settings);
@@ -1404,12 +1412,15 @@ export default class TagFolderPlugin extends Plugin {
 			.join(" ")
 			.trim();
 
-		const selectedTemplate = getConfiguredNewNoteTemplate(this.app, this.settings.newNoteTemplate)
-			?? await askNewNoteTemplate(this.app);
+		const configuredTemplatePath = normalizeNewNoteTemplatePath(this.settings.newNoteTemplate);
+		const selectedTemplate = configuredTemplatePath == ""
+			? null
+			: (getConfiguredNewNoteTemplate(this.app, configuredTemplatePath)
+				?? await askNewNoteTemplate(this.app));
 
 		//@ts-ignore
 		const ww = await this.app.fileManager.createAndOpenMarkdownFile() as TFile;
-		if (selectedTemplate !== false) {
+		if (selectedTemplate != null && selectedTemplate !== false) {
 			const template = await this.app.vault.read(selectedTemplate);
 			const renderedTemplate = renderNewNoteTemplate(template, expandedTagsAll, expandedTags);
 			if (renderedTemplate.trim() != "") {
@@ -1646,7 +1657,7 @@ class TagFolderSettingTab extends PluginSettingTab {
 					.setPlaceholder("Templates/New note")
 					.setValue(this.plugin.settings.newNoteTemplate)
 					.onChange(async (value) => {
-						this.plugin.settings.newNoteTemplate = normalizePath(value.trim());
+						this.plugin.settings.newNoteTemplate = normalizeNewNoteTemplatePath(value);
 						await this.plugin.saveSettings();
 					});
 				new NewNoteTemplateInputSuggest(this.app, text.inputEl, (template) => {

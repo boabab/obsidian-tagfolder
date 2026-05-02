@@ -10,6 +10,7 @@ My fork keeps the original plugin behavior and adds my changes on top of it.
 
 - Added support for creating new notes from a configured template when using TagFolder.
 - Added a TagFolder context-menu action for renaming tags through TagWrangler.
+- Added glob * filtering support.
 
 ### Install my build
 
